@@ -10,7 +10,7 @@
 
 # Load packages ----
 
-packages <- c("jsonlite", "dplyr")
+packages <- c("jsonlite", "dplyr", "stringr")
 
 invisible(lapply(packages, library, character.only = TRUE))
 
@@ -72,21 +72,23 @@ plan_data <- tibble::as_tibble(raw_plan_data$results)
 
 
 ## Identify unique program names ----
-
-plan_data$program_name |> 
-  unique() |> 
-  sort() 
-
+# 
+# plan_data$program_name |> 
+#   unique() |> 
+#   sort() 
+# 
 # There are 161...
 
 
-## Subset dataset to comprehensive MCOs only ----
+## Subset dataset to remove irrelevant plans ----
 
 plan_data <- plan_data |> 
-  filter(stringr::str_detect(program_name, "Comprehensive MCO"))
+  filter(!stringr::str_detect(program_name, "BHO|BHSO|Dental|PACE|Senior"))
+
+# Remove behavioral health/dental/senior only
 
 
-# See states with comprehensive MCOs ----
+## See states with managed care ----
 
 plan_data$state |> 
   unique() |> 
@@ -96,7 +98,7 @@ plan_data$state |>
 # There is only one HI, but it has the odd suffix: Hawaii5. Same for OK and VT: Oklahoma7 and Vermont9, respectively.
 
 
-# Identify states with odd numeric suffix ---
+## Identify states with odd numeric suffix ---
 
 odd_states <- plan_data |> 
   filter(stringr::str_detect(state, "[0-9]")) |> 
@@ -108,6 +110,14 @@ plan_data |>
   View()
 
 # See the explanations in the notes column.
+
+
+## Remove odd state suffixes ----
+
+plan_data <- plan_data |> 
+  mutate(state = case_when(str_detect(state, "[0-9]") ~ str_replace_all(state, "[0-9]", ""),
+                           TRUE ~ state))
+  
 
 
 # References ----
