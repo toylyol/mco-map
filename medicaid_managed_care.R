@@ -99,16 +99,16 @@ plan_data$state |>
 
 
 ## Identify states with odd numeric suffix ---
-
-odd_states <- plan_data |> 
-  filter(stringr::str_detect(state, "[0-9]")) |> 
-  pull(state) |> 
-  unique()
-
-plan_data |> 
-  filter(state %in% odd_states) |> 
-  View()
-
+# 
+# odd_states <- plan_data |> 
+#   filter(stringr::str_detect(state, "[0-9]")) |> 
+#   pull(state) |> 
+#   unique()
+# 
+# plan_data |> 
+#   filter(state %in% odd_states) |> 
+#   View()
+# 
 # See the explanations in the notes column.
 
 
@@ -118,6 +118,44 @@ plan_data <- plan_data |>
   mutate(state = case_when(str_detect(state, "[0-9]") ~ str_replace_all(state, "[0-9]", ""),
                            TRUE ~ state))
   
+
+# Retrieve US counties shapefiles ----
+
+us_counties <- tigris::counties(cb = TRUE, year = "2021", resolution = "500k")
+
+
+## Remove US territories from shapefile ----
+
+territory_fips <- c("60", "66", "69", "78") # specify state FIPS codes not needed; note PR is "72"
+
+`%not_in%` <- Negate( `%in%` )
+
+us_counties <- us_counties %>%
+  filter(STATEFP %not_in% territory_fips)
+
+
+# Pivot data ----
+
+test <- plan_data |> 
+  tidyr::pivot_wider(id_cols = state,
+                     names_from = c(plan_name),
+                     values_from = geographic_region)
+
+
+# Merge shapefile and data ----
+
+us_counties_data <- us_counties |> 
+  left_join(plan_data, by = c("STATE_NAME" = "state"))
+
+
+# Save as GPKG ----
+
+sf::st_write(obj = us_counties, dsn = "us_counties_2021.gpkg", delete_dsn = TRUE)
+
+
+# Read in GPKG ----
+
+# st_read(dsn = "us_counties_2021.gpkg")
 
 
 # References ----
