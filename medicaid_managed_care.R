@@ -117,45 +117,60 @@ plan_data$state |>
 plan_data <- plan_data |> 
   mutate(state = case_when(str_detect(state, "[0-9]") ~ str_replace_all(state, "[0-9]", ""),
                            TRUE ~ state))
-  
+
 
 # Retrieve US counties shapefiles ----
-
-us_counties <- tigris::counties(cb = TRUE, year = "2021", resolution = "500k")
-
-
-## Remove US territories from shapefile ----
-
-territory_fips <- c("60", "66", "69", "78") # specify state FIPS codes not needed; note PR is "72"
-
-`%not_in%` <- Negate( `%in%` )
-
-us_counties <- us_counties %>%
-  filter(STATEFP %not_in% territory_fips)
-
-
-# Pivot data ----
-
-test <- plan_data |> 
-  tidyr::pivot_wider(id_cols = state,
-                     names_from = c(plan_name),
-                     values_from = geographic_region)
+# 
+# us_counties <- tigris::counties(cb = TRUE, year = "2021", resolution = "500k")
+# 
+# ## Remove US territories from shapefile ----
+# 
+# territory_fips <- c("60", "66", "69", "78") # specify state FIPS codes not needed; note PR is "72"
+# 
+# `%not_in%` <- Negate( `%in%` )
+# 
+# us_counties <- us_counties %>%
+#   filter(STATEFP %not_in% territory_fips)
+#
+# ## Save as GPKG ----
+# 
+# sf::st_write(obj = us_counties, dsn = "us_counties_2021.gpkg")
 
 
-# Merge shapefile and data ----
+# Test ----
 
-us_counties_data <- us_counties |> 
-  left_join(plan_data, by = c("STATE_NAME" = "state"))
+arizona_data <- filter(plan_data, state == "Arizona")
 
+## Add ID column so that user can compare map and reactable
 
-# Save as GPKG ----
+arizona_data <- arizona_data |> 
+  tibble::rowid_to_column("id")
 
-sf::st_write(obj = us_counties, dsn = "us_counties_2021.gpkg", delete_dsn = TRUE)
+## Create distinct col for each geo region
+
+arizona_data <- arizona_data |> 
+  tidyr::separate_wider_delim(cols = geographic_region, # specify col to separate
+                       delim = ", ",
+                       names_sep = "", # name as many cols as needed automatically
+                       too_few = "align_start") # make as many cols as needed
+
+## Remove extraneous text caused by separation
+
+arizona_data <- arizona_data |> 
+  mutate(
+    across(starts_with("geographic_region"), 
+          ~ str_replace_all(., "and | counties", ""))
+         )
+
+## Pivot longer
 
 
 # Read in GPKG ----
 
-# st_read(dsn = "us_counties_2021.gpkg")
+us_counties <- st_read(dsn = "us_counties_2021.gpkg")
+
+
+# Merge shapefile and data ----
 
 
 # References ----
