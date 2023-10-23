@@ -1,12 +1,24 @@
 
-# ___  ___         _ _           _     _  ___  ___                                 _   _____                
-# |  \/  |        | (_)         (_)   | | |  \/  |                                | | /  __ \               
-# | .  . | ___  __| |_  ___ __ _ _  __| | | .  . | __ _ _ __   __ _  __ _  ___  __| | | /  \/ __ _ _ __ ___ 
-# | |\/| |/ _ \/ _` | |/ __/ _` | |/ _` | | |\/| |/ _` | '_ \ / _` |/ _` |/ _ \/ _` | | |    / _` | '__/ _ \
-# | |  | |  __/ (_| | | (_| (_| | | (_| | | |  | | (_| | | | | (_| | (_| |  __/ (_| | | \__/\ (_| | | |  __/
-# \_|  |_/\___|\__,_|_|\___\__,_|_|\__,_| \_|  |_/\__,_|_| |_|\__,_|\__, |\___|\__,_|  \____/\__,_|_|  \___|
-#                                                                    __/ |                                  
-#                                                                   |___/                                   
+# ___  ___         _ _           _     _  ___  ___                                 _   _____                                            
+# |  \/  |        | (_)         (_)   | | |  \/  |                                | | /  __ \                                           
+# | .  . | ___  __| |_  ___ __ _ _  __| | | .  . | __ _ _ __   __ _  __ _  ___  __| | | /  \/ __ _ _ __ ___                             
+# | |\/| |/ _ \/ _` | |/ __/ _` | |/ _` | | |\/| |/ _` | '_ \ / _` |/ _` |/ _ \/ _` | | |    / _` | '__/ _ \                            
+# | |  | |  __/ (_| | | (_| (_| | | (_| | | |  | | (_| | | | | (_| | (_| |  __/ (_| | | \__/\ (_| | | |  __/                            
+# \_|  |_/\___|\__,_|_|\___\__,_|_|\__,_| \_|  |_/\__,_|_| |_|\__,_|\__, |\___|\__,_|  \____/\__,_|_|  \___|                            
+#                                                                    __/ |                                                              
+#                                                                   |___/                                                               
+#  _____                _ _                      _    ______        ______                                        _______ _             
+# |  ___|              | | |                    | |   | ___ \       | ___ \                                      / / ___ \ |            
+# | |__ _ __  _ __ ___ | | |_ __ ___   ___ _ __ | |_  | |_/ /_   _  | |_/ / __ ___   __ _ _ __ __ _ _ __ ___    / /| |_/ / | __ _ _ __  
+# |  __| '_ \| '__/ _ \| | | '_ ` _ \ / _ \ '_ \| __| | ___ \ | | | |  __/ '__/ _ \ / _` | '__/ _` | '_ ` _ \  / / |  __/| |/ _` | '_ \ 
+# | |__| | | | | | (_) | | | | | | | |  __/ | | | |_  | |_/ / |_| | | |  | | | (_) | (_| | | | (_| | | | | | |/ /  | |   | | (_| | | | |
+# \____/_| |_|_|  \___/|_|_|_| |_| |_|\___|_| |_|\__| \____/ \__, | \_|  |_|  \___/ \__, |_|  \__,_|_| |_| |_/_/   \_|   |_|\__,_|_| |_|
+#                                                             __/ |                  __/ |                                              
+#                                                            |___/                  |___/                                               
+#                                 
+
+# NOTE: This is the dataset used by KFF: It was Table 5 in the 2020 enrollment report.
+
 
 # Load packages ----
 
@@ -15,50 +27,6 @@ packages <- c("jsonlite", "dplyr", "stringr")
 invisible(lapply(packages, library, character.only = TRUE))
 
 
-#*************************************#
-# 2021 Managed Care Programs By State #
-#*************************************#
-
-# Retrieve program dataset from Medicaid site ----
-
-url1 <- "https://data.medicaid.gov/api/1/datastore/query/7459d190-e592-42e0-9b66-6f4e7e05eb9b/0"
-
-raw_program_data <- fromJSON(url1)
-
-
-## Convert and streamline raw data ----
-
-program_data <- tibble::as_tibble(raw_program_data$results) |> 
-  select(features, program_type, statewide_or_regionspecific, state)
-
-
-## Identify all program types ----
-
-all_programs <- program_data$program_type |> 
-  unique() |> 
-  sort()
-
-
-## Specify program types to include ----
-
-eligible_programs <- program_data |> 
-  filter(stringr::str_detect(program_type,"MCO")) |> 
-  select(program_type) |> 
-  pull() |> 
-  unique()
-
-
-## Subset data ----
-
-program_data <- program_data |> 
-  filter(program_type %in% eligible_programs)
-
-
-#*******************************************************************************#
-# 2021 Managed Care Enrollment by Program and Plan                              #
-# This is the dataset used by KFF: It is Table 5 in the 2020 enrollment report. #
-#*******************************************************************************#
-
 # Retrieve plan dataset from Medicaid site ----
 
 url2 <- "https://data.medicaid.gov/api/1/datastore/query/0bef7b8a-c663-5b14-9a46-0b5c2b86b0fe/0?conditions[0][property]=year&conditions[0][value]=2021"
@@ -66,7 +34,7 @@ url2 <- "https://data.medicaid.gov/api/1/datastore/query/0bef7b8a-c663-5b14-9a46
 raw_plan_data <- fromJSON(url2)
 
 
-## Convert to df ----
+# Convert to df ----
 
 plan_data <- tibble::as_tibble(raw_plan_data$results)
 
@@ -80,7 +48,7 @@ plan_data <- tibble::as_tibble(raw_plan_data$results)
 # There are 161...
 
 
-## Subset dataset to remove irrelevant plans ----
+# Subset dataset to remove irrelevant plans ----
 
 plan_data <- plan_data |> 
   filter(!stringr::str_detect(program_name, "BHO|BHSO|Dental|PACE|Senior"))
@@ -88,7 +56,7 @@ plan_data <- plan_data |>
 # Remove behavioral health/dental/senior only
 
 
-## See states with managed care ----
+# See states with managed care ----
 
 plan_data$state |> 
   unique() |> 
@@ -98,7 +66,7 @@ plan_data$state |>
 # There is only one HI, but it has the odd suffix: Hawaii5. Same for OK and VT: Oklahoma7 and Vermont9, respectively.
 
 
-## Identify states with odd numeric suffix ---
+# Identify states with odd numeric suffix ---
 # 
 # odd_states <- plan_data |> 
 #   filter(stringr::str_detect(state, "[0-9]")) |> 
@@ -117,6 +85,12 @@ plan_data$state |>
 plan_data <- plan_data |> 
   mutate(state = case_when(str_detect(state, "[0-9]") ~ str_replace_all(state, "[0-9]", ""),
                            TRUE ~ state))
+
+
+# Add ID column so that user can compare map and reactable ----
+ 
+plan_data <- plan_data |> 
+   tibble::rowid_to_column("id")
 
 
 # Retrieve US counties shapefiles ----
@@ -141,11 +115,6 @@ plan_data <- plan_data |>
 
 arizona_data <- filter(plan_data, state == "Arizona")
 
-## Add ID column so that user can compare map and reactable
-
-arizona_data <- arizona_data |> 
-  tibble::rowid_to_column("id")
-
 ## Create distinct col for each geo region
 
 arizona_data <- arizona_data |> 
@@ -164,6 +133,32 @@ arizona_data <- arizona_data |>
 
 ## Pivot longer
 
+test <- arizona_data |> 
+  tidyr::pivot_longer(cols = starts_with("geographic_region"),
+                      values_to = "geo_region")
+
+test2 <- test |> 
+  tidyr::pivot_wider(id_cols = c("id", "geo_region"),
+                     values_from = "plan_name")
+
+# without "id," list columns are generated
+# test2 <- test |> 
+#   tidyr::pivot_wider(id_cols = "geo_region",
+#                      values_from = "plan_name")
+
+test3 <- test2 |> 
+  tidyr::pivot_wider(id_cols = "geo_region",
+                     values_from = starts_with("geographic_region"),
+                     names_from = "id")
+
+test4 <- test3 |> 
+  tidyr::unite("plans", starts_with("geographic_region"), sep = ",") 
+
+test5 <- test4 |> 
+  mutate(plans =  
+           str_replace_all(plans, "NA,|,NA", "")
+  )
+
 
 # Read in GPKG ----
 
@@ -176,8 +171,6 @@ us_counties <- st_read(dsn = "us_counties_2021.gpkg")
 # References ----
 
 # See landing Page: https://www.medicaid.gov/medicaid/managed-care/enrollment-report/index.html
-
-# See data source url1: https://data.medicaid.gov/dataset/7459d190-e592-42e0-9b66-6f4e7e05eb9b
 
 # See data source url2: https://data.medicaid.gov/dataset/0bef7b8a-c663-5b14-9a46-0b5c2b86b0fe/data?conditions[0][property]=year&conditions[0][value]=2021&conditions[0][operator]=%3D
 
