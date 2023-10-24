@@ -131,33 +131,32 @@ arizona_data <- arizona_data |>
           ~ str_replace_all(., "and | counties", ""))
          )
 
-## Pivot longer
+## Pivot 
 
-test <- arizona_data |> 
+arizona_data <- arizona_data |> 
   tidyr::pivot_longer(cols = starts_with("geographic_region"),
-                      values_to = "geo_region")
+                      values_to = "geo_region") |> 
+  mutate(name = row_number())
 
-test2 <- test |> 
+arizona_data <- arizona_data |> 
   tidyr::pivot_wider(id_cols = c("id", "geo_region"),
-                     values_from = "plan_name")
+                     values_from = "plan_name",
+                     names_from = name,
+                     names_prefix = "plan") 
 
-# without "id," list columns are generated
-# test2 <- test |> 
-#   tidyr::pivot_wider(id_cols = "geo_region",
-#                      values_from = "plan_name")
-
-test3 <- test2 |> 
+arizona_data <- arizona_data |> 
   tidyr::pivot_wider(id_cols = "geo_region",
-                     values_from = starts_with("geographic_region"),
+                     values_from = starts_with("plan"),
                      names_from = "id")
 
-test4 <- test3 |> 
-  tidyr::unite("plans", starts_with("geographic_region"), sep = ",") 
+arizona_data <- arizona_data |> 
+  tidyr::unite("plans", starts_with("plan"), sep = ",") 
 
-test5 <- test4 |> 
+arizona_data <- arizona_data |> 
   mutate(plans =  
            str_replace_all(plans, "NA,|,NA", "")
-  )
+  ) |> 
+  filter(!is.na(geo_region))
 
 
 # Read in GPKG ----
