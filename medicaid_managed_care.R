@@ -113,46 +113,28 @@ plan_data <- plan_data |>
 
 # Test ----
 
-arizona_data <- filter(plan_data, state == "Arizona")
-
-## Create distinct col for each geo region
-
-arizona_data <- arizona_data |> 
+arizona_data <- plan_data |> 
+  filter(state == "Arizona") |> 
   tidyr::separate_wider_delim(cols = geographic_region, # specify col to separate
-                       delim = ", ",
-                       names_sep = "", # name as many cols as needed automatically
-                       too_few = "align_start") # make as many cols as needed
-
-## Remove extraneous text caused by separation
-
-arizona_data <- arizona_data |> 
-  mutate(
-    across(starts_with("geographic_region"), 
-          ~ str_replace_all(., "and | counties", ""))
-         )
-
-## Pivot 
-
-arizona_data <- arizona_data |> 
+                              delim = ", ",
+                              names_sep = "", # name as many cols as needed automatically
+                              too_few = "align_start") |>  # make as many cols as needed
+  mutate(across(starts_with("geographic_region"), 
+                ~ str_replace_all(., "and | counties", ""))
+  )|> 
   tidyr::pivot_longer(cols = starts_with("geographic_region"),
                       values_to = "geo_region") |> 
-  mutate(name = row_number())
-
-arizona_data <- arizona_data |> 
+  mutate(name = row_number(),
+         geo_region = ifelse(geo_region == "Statewide", state, geo_region)
+         )|> 
   tidyr::pivot_wider(id_cols = c("id", "geo_region"),
                      values_from = "plan_name",
                      names_from = name,
-                     names_prefix = "plan") 
-
-arizona_data <- arizona_data |> 
+                     names_prefix = "plan") |> 
   tidyr::pivot_wider(id_cols = "geo_region",
                      values_from = starts_with("plan"),
-                     names_from = "id")
-
-arizona_data <- arizona_data |> 
-  tidyr::unite("plans", starts_with("plan"), sep = ",") 
-
-arizona_data <- arizona_data |> 
+                     names_from = "id") |> 
+  tidyr::unite("plans", starts_with("plan"), sep = ",")|> 
   mutate(plans =  
            str_replace_all(plans, "NA,|,NA", "")
   ) |> 
@@ -161,7 +143,7 @@ arizona_data <- arizona_data |>
 
 # Read in GPKG ----
 
-us_counties <- st_read(dsn = "us_counties_2021.gpkg")
+us_counties <- sf::st_read(dsn = "us_counties_2021.gpkg")
 
 
 # Merge shapefile and data ----
