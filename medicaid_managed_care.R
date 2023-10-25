@@ -22,7 +22,7 @@
 
 # Load packages ----
 
-packages <- c("jsonlite", "dplyr", "stringr")
+packages <- c("jsonlite", "dplyr", "stringr", "sf")
 
 invisible(lapply(packages, library, character.only = TRUE))
 
@@ -146,7 +146,23 @@ arizona_data <- plan_data |>
 us_counties <- sf::st_read(dsn = "us_counties_2021.gpkg")
 
 
-# Merge shapefile and data ----
+# Test 2 ----
+
+arizona_data <- plan_data |> filter(state == "Arizona")
+
+arizona_data <- arizona_data |> 
+  mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
+  mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
+
+arizona_shp1 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
+  st_union() 
+
+arizona_shp2 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
+  bind_rows() 
+
+mapview::mapview(arizona_shp1)
 
 
 # References ----
