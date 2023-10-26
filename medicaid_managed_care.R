@@ -145,6 +145,14 @@ arizona_data <- plan_data |>
 
 us_counties <- sf::st_read(dsn = "us_counties_2021.gpkg")
 
+## Reproject to leaflet's desired CRS
+
+us_counties <- st_transform(us_counties, crs = 4326)
+
+## Check 
+
+st_crs(us_counties)
+
 
 # Test 2 ----
 
@@ -156,13 +164,16 @@ arizona_data <- arizona_data |>
 
 arizona_shp1 <- us_counties |> 
   filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
-  st_union() 
+  st_union() |> 
+  st_as_sf()
 
 arizona_shp2 <- us_counties |> 
   filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
   bind_rows() 
 
 mapview::mapview(arizona_shp1)
+
+mapview::mapview(arizona_shp2)
 
 
 # References ----
