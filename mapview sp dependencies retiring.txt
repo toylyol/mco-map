@@ -1,0 +1,56 @@
+> install.packages("mapview")
+Installing package into ‘C:/Users/toyin/AppData/Local/R/win-library/4.3’
+(as ‘lib’ is unspecified)
+also installing the dependencies ‘brew’, ‘svglite’, ‘plyr’, ‘leafem’, ‘leafpop’, ‘satellite’, ‘servr’
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/brew_1.0-8.zip'
+Content type 'application/zip' length 78745 bytes (76 KB)
+downloaded 76 KB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/svglite_2.1.2.zip'
+Content type 'application/zip' length 683013 bytes (667 KB)
+downloaded 667 KB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/plyr_1.8.9.zip'
+Content type 'application/zip' length 1163398 bytes (1.1 MB)
+downloaded 1.1 MB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/leafem_0.2.3.zip'
+Content type 'application/zip' length 3562289 bytes (3.4 MB)
+downloaded 3.4 MB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/leafpop_0.1.0.zip'
+Content type 'application/zip' length 1914055 bytes (1.8 MB)
+downloaded 1.8 MB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/satellite_1.0.4.zip'
+Content type 'application/zip' length 3303189 bytes (3.2 MB)
+downloaded 3.2 MB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/servr_0.27.zip'
+Content type 'application/zip' length 90984 bytes (88 KB)
+downloaded 88 KB
+
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.3/mapview_2.11.2.zip'
+Content type 'application/zip' length 2403545 bytes (2.3 MB)
+downloaded 2.3 MB
+
+package ‘brew’ successfully unpacked and MD5 sums checked
+package ‘svglite’ successfully unpacked and MD5 sums checked
+package ‘plyr’ successfully unpacked and MD5 sums checked
+package ‘leafem’ successfully unpacked and MD5 sums checked
+package ‘leafpop’ successfully unpacked and MD5 sums checked
+package ‘satellite’ successfully unpacked and MD5 sums checked
+package ‘servr’ successfully unpacked and MD5 sums checked
+package ‘mapview’ successfully unpacked and MD5 sums checked
+
+The downloaded binary packages are in
+	C:\Users\toyin\AppData\Local\Temp\Rtmpg9Dbuz\downloaded_packages
+The legacy packages maptools, rgdal, and rgeos, underpinning the sp package,
+which was just loaded, will retire in October 2023.
+Please refer to R-spatial evolution reports for details, especially
+https://r-spatial.org/r/2023/05/15/evolution4.html.
+It may be desirable to make the sf package available;
+package maintainers should consider adding sf to Suggests:.
+The sp package is now running under evolution status 2
+     (status 2 uses the sf package in place of rgdal)

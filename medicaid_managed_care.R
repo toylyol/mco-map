@@ -22,7 +22,7 @@
 
 # Load packages ----
 
-packages <- c("jsonlite", "dplyr", "stringr", "sf")
+packages <- c("jsonlite", "dplyr", "stringr", "sf", "leaflet")
 
 invisible(lapply(packages, library, character.only = TRUE))
 
@@ -36,109 +36,23 @@ raw_plan_data <- fromJSON(url2)
 
 # Convert to df ----
 
-plan_data <- tibble::as_tibble(raw_plan_data$results)
+plan_data <- tibble::as_tibble(raw_plan_data$results) |> 
+  tibble::rowid_to_column("id") # add ID column
 
 
-## Identify unique program names ----
-# 
-# plan_data$program_name |> 
-#   unique() |> 
-#   sort() 
-# 
-# There are 161...
-
-
-# Subset dataset to remove irrelevant plans ----
+# Clean up data frame ----
 
 plan_data <- plan_data |> 
-  filter(!stringr::str_detect(program_name, "BHO|BHSO|Dental|PACE|Senior"))
-
-# Remove behavioral health/dental/senior only
-
-
-# See states with managed care ----
-
-plan_data$state |> 
-  unique() |> 
-  sort()
-
-# There are 54. Some states are duplicated with an odd suffix: Colorado and Colorado3, Ohio and Ohio6, etc.
-# There is only one HI, but it has the odd suffix: Hawaii5. Same for OK and VT: Oklahoma7 and Vermont9, respectively.
-
-
-# Identify states with odd numeric suffix ---
-# 
-# odd_states <- plan_data |> 
-#   filter(stringr::str_detect(state, "[0-9]")) |> 
-#   pull(state) |> 
-#   unique()
-# 
-# plan_data |> 
-#   filter(state %in% odd_states) |> 
-#   View()
-# 
-# See the explanations in the notes column.
-
-
-## Remove odd state suffixes ----
-
-plan_data <- plan_data |> 
+  # remove behavioral health/dental/senior only
+  filter(!str_detect(program_name, "BHO|BHSO|Dental|PACE|Senior")) |> 
+  # remove odd state suffixes denoting notes
   mutate(state = case_when(str_detect(state, "[0-9]") ~ str_replace_all(state, "[0-9]", ""),
-                           TRUE ~ state))
+                           TRUE ~ state)) |> 
+  # replace commas with or operator to facilitate subsetting geometries
+  mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
+  mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
 
-
-# Add ID column so that user can compare map and reactable ----
- 
-plan_data <- plan_data |> 
-   tibble::rowid_to_column("id")
-
-
-# Retrieve US counties shapefiles ----
-# 
-# us_counties <- tigris::counties(cb = TRUE, year = "2021", resolution = "500k")
-# 
-# ## Remove US territories from shapefile ----
-# 
-# territory_fips <- c("60", "66", "69", "78") # specify state FIPS codes not needed; note PR is "72"
-# 
-# `%not_in%` <- Negate( `%in%` )
-# 
-# us_counties <- us_counties %>%
-#   filter(STATEFP %not_in% territory_fips)
-#
-# ## Save as GPKG ----
-# 
-# sf::st_write(obj = us_counties, dsn = "us_counties_2021.gpkg")
-
-
-# Test ----
-
-arizona_data <- plan_data |> 
-  filter(state == "Arizona") |> 
-  tidyr::separate_wider_delim(cols = geographic_region, # specify col to separate
-                              delim = ", ",
-                              names_sep = "", # name as many cols as needed automatically
-                              too_few = "align_start") |>  # make as many cols as needed
-  mutate(across(starts_with("geographic_region"), 
-                ~ str_replace_all(., "and | counties", ""))
-  )|> 
-  tidyr::pivot_longer(cols = starts_with("geographic_region"),
-                      values_to = "geo_region") |> 
-  mutate(name = row_number(),
-         geo_region = ifelse(geo_region == "Statewide", state, geo_region)
-         )|> 
-  tidyr::pivot_wider(id_cols = c("id", "geo_region"),
-                     values_from = "plan_name",
-                     names_from = name,
-                     names_prefix = "plan") |> 
-  tidyr::pivot_wider(id_cols = "geo_region",
-                     values_from = starts_with("plan"),
-                     names_from = "id") |> 
-  tidyr::unite("plans", starts_with("plan"), sep = ",")|> 
-  mutate(plans =  
-           str_replace_all(plans, "NA,|,NA", "")
-  ) |> 
-  filter(!is.na(geo_region))
+# TODO: Exclude geographic regions that are non-counties or statewide.
 
 
 # Read in GPKG ----
@@ -154,137 +68,80 @@ us_counties <- st_transform(us_counties, crs = 4326)
 st_crs(us_counties)
 
 
-# Test 2 ----
+# Iterate test ----
 
-# Create prototype 1 map
+## create function
 
-arizona_data2 <- plan_data |> filter(state == "Arizona")
+createCoverageArea <- function(df_subset){
+  
+  identifier <- df_subset$id
+  
+  state <- df_subset$state
+  
+  area <- df_subset$geographic_region
+  
+  if(area == "Statewide"){
+    
+    us_counties |> 
+      filter(str_detect(STATE_NAME, state)) |> 
+      st_combine() |> 
+      st_as_sf() |> 
+      mutate(id = identifier) |> 
+      left_join(df_subset, by = "id") } else {
+        
+        us_counties |> 
+          filter(STATE_NAME == state) |>  # in case there are counties with the same name
+          filter(str_detect(NAME,area)) |> 
+          st_combine() |> 
+          st_as_sf() |> 
+          mutate(id = identifier) |> 
+          left_join(df_subset, by = "id")
+      }
+  
+}
 
-arizona_data2 <- arizona_data2 |> 
-  mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
-  mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
+## subset data
 
-arizona_shp1.1 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
-  bind_rows() |> 
-  mutate(id = arizona_data2$id[1]) |> 
-  left_join(arizona_data2, by = "id")
+data <- filter(plan_data, state == "Arizona")
 
-arizona_shp1.2 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
-  bind_rows() |> 
-  mutate(id = arizona_data2$id[2]) |> 
-  left_join(arizona_data2, by = "id")
+## create two vectors to prep for iterate
 
-az_mcos1 <- arizona_shp1.1 |> 
-  bind_rows(arizona_shp1.2)
+input_list <- vector("list", length(data))
+
+output_shp <- vector("list", length(data))
+
+## use for loop to create list to isolat each plan's data
+
+for (i in seq_along(data)){
+  
+  temp <- data[i, ]
+   
+  input_list[[i]] <- temp
+  
+}
+
+## iterate over each plan's data to add multipolygon coverage area
+
+output_list <- purrr::map(input_list, createCoverageArea)
+
+## combine list with each plan's data and coverage area into one sf df
+
+map_df <- bind_rows(output_list)
+
+## make multi-layer map
 
 leaflet() %>%
   addTiles() %>%   # add base map
-  addPolygons(data = az_mcos1,
+  addPolygons(data = map_df,
               weight = 1,
-              opacity = 1.0, fillOpacity = 0.7, 
-              group = az_mcos1$plan_name,
+              opacity = 1.0, fillOpacity = 0.25, 
+              group = map_df$plan_name,
               stroke = TRUE,
               highlightOptions = highlightOptions(color = "white", weight = 2,
                                                   bringToFront = TRUE)
   ) %>%
   addLayersControl(
-    overlayGroups = az_mcos1$plan_name,
-    options = layersControlOptions(collapsed = FALSE)
-  ) 
-
-
-# Test 3 ----
-
-# Create prototype 2 maps (remove county layer for 2a)
-
-arizona_data2 <- plan_data |> filter(state == "Arizona")
-
-arizona_data2 <- arizona_data2 |> 
-  mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
-  mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
-
-arizona_shp2 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
-  st_union() |> 
-  st_as_sf() |> 
-  mutate(id = arizona_data2$id[1]) |> 
-  left_join(arizona_data2, by = "id")
-
-arizona_shp3 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
-  st_union() |> 
-  st_as_sf() |> 
-  mutate(id = arizona_data2$id[2]) |> 
-  left_join(arizona_data2, by = "id")
-
-arizona_shp4 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[4])) |> 
-  st_union() |> 
-  st_as_sf() |> 
-  mutate(id = arizona_data2$id[4]) |> 
-  left_join(arizona_data2, by = "id")
-
-az_mcos2 <- arizona_shp2 |> 
-  bind_rows(arizona_shp3) |> 
-  bind_rows(arizona_shp4)
-
-leaflet() %>%
-  addTiles() %>%   # add base map
-  addPolygons(data = us_counties,
-              weight = 0.5, 
-              opacity = 1,  # set stroke opacity
-              fillOpacity = 0,
-              color = "gray") %>%
-  addPolygons(data = az_mcos2,
-              weight = 1,
-              opacity = 1.0, fillOpacity = 0.7, 
-              group = az_mcos2$plan_name,
-              stroke = TRUE,
-              highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                  bringToFront = TRUE)
-  ) %>%
-  addLayersControl(
-    overlayGroups = az_mcos2$plan_name,
-    options = layersControlOptions(collapsed = FALSE)
-  ) %>%
-  setView(lng = -111, lat = 34, zoom = 6)
-
-
-# Test 4 ----
-
-# Create prototype 3 map
-
-arizona_shp5.1 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
-  st_combine() |> 
-  st_as_sf() |> 
-  mutate(id = arizona_data2$id[1]) |> 
-  left_join(arizona_data2, by = "id")
-
-arizona_shp5.2 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
-  st_combine() |> 
-  st_as_sf() |>  
-  mutate(id = arizona_data2$id[2]) |> 
-  left_join(arizona_data2, by = "id")
-
-az_mcos3 <- arizona_shp5.1 |> 
-  bind_rows(arizona_shp5.2)
-
-leaflet() %>%
-  addTiles() %>%   # add base map
-  addPolygons(data = az_mcos3,
-              weight = 1,
-              opacity = 1.0, fillOpacity = 0.7, 
-              group = az_mcos3$plan_name,
-              stroke = TRUE,
-              highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                  bringToFront = TRUE)
-  ) %>%
-  addLayersControl(
-    overlayGroups = az_mcos3$plan_name,
+    overlayGroups = map_df$plan_name,
     options = layersControlOptions(collapsed = FALSE)
   ) 
 
