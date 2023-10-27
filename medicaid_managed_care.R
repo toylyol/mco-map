@@ -156,24 +156,137 @@ st_crs(us_counties)
 
 # Test 2 ----
 
-arizona_data <- plan_data |> filter(state == "Arizona")
+# Create prototype 1 map
 
-arizona_data <- arizona_data |> 
+arizona_data2 <- plan_data |> filter(state == "Arizona")
+
+arizona_data2 <- arizona_data2 |> 
   mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
   mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
 
-arizona_shp1 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
-  st_union() |> 
-  st_as_sf()
+arizona_shp1.1 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
+  bind_rows() |> 
+  mutate(id = arizona_data2$id[1]) |> 
+  left_join(arizona_data2, by = "id")
+
+arizona_shp1.2 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
+  bind_rows() |> 
+  mutate(id = arizona_data2$id[2]) |> 
+  left_join(arizona_data2, by = "id")
+
+az_mcos1 <- arizona_shp1.1 |> 
+  bind_rows(arizona_shp1.2)
+
+leaflet() %>%
+  addTiles() %>%   # add base map
+  addPolygons(data = az_mcos1,
+              weight = 1,
+              opacity = 1.0, fillOpacity = 0.7, 
+              group = az_mcos1$plan_name,
+              stroke = TRUE,
+              highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                  bringToFront = TRUE)
+  ) %>%
+  addLayersControl(
+    overlayGroups = az_mcos1$plan_name,
+    options = layersControlOptions(collapsed = FALSE)
+  ) 
+
+
+# Test 3 ----
+
+# Create prototype 2 maps (remove county layer for 2a)
+
+arizona_data2 <- plan_data |> filter(state == "Arizona")
+
+arizona_data2 <- arizona_data2 |> 
+  mutate(geographic_region = str_replace_all(geographic_region, ", ", "|")) |> 
+  mutate(geographic_region = str_replace_all(geographic_region, "and | counties", ""))
 
 arizona_shp2 <- us_counties |> 
-  filter(str_detect(NAME,arizona_data$geographic_region[1])) |> 
-  bind_rows() 
+  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
+  st_union() |> 
+  st_as_sf() |> 
+  mutate(id = arizona_data2$id[1]) |> 
+  left_join(arizona_data2, by = "id")
 
-mapview::mapview(arizona_shp1)
+arizona_shp3 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
+  st_union() |> 
+  st_as_sf() |> 
+  mutate(id = arizona_data2$id[2]) |> 
+  left_join(arizona_data2, by = "id")
 
-mapview::mapview(arizona_shp2)
+arizona_shp4 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[4])) |> 
+  st_union() |> 
+  st_as_sf() |> 
+  mutate(id = arizona_data2$id[4]) |> 
+  left_join(arizona_data2, by = "id")
+
+az_mcos2 <- arizona_shp2 |> 
+  bind_rows(arizona_shp3) |> 
+  bind_rows(arizona_shp4)
+
+leaflet() %>%
+  addTiles() %>%   # add base map
+  addPolygons(data = us_counties,
+              weight = 0.5, 
+              opacity = 1,  # set stroke opacity
+              fillOpacity = 0,
+              color = "gray") %>%
+  addPolygons(data = az_mcos2,
+              weight = 1,
+              opacity = 1.0, fillOpacity = 0.7, 
+              group = az_mcos2$plan_name,
+              stroke = TRUE,
+              highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                  bringToFront = TRUE)
+  ) %>%
+  addLayersControl(
+    overlayGroups = az_mcos2$plan_name,
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  setView(lng = -111, lat = 34, zoom = 6)
+
+
+# Test 4 ----
+
+# Create prototype 3 map
+
+arizona_shp5.1 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[1])) |> 
+  st_combine() |> 
+  st_as_sf() |> 
+  mutate(id = arizona_data2$id[1]) |> 
+  left_join(arizona_data2, by = "id")
+
+arizona_shp5.2 <- us_counties |> 
+  filter(str_detect(NAME,arizona_data2$geographic_region[2])) |> 
+  st_combine() |> 
+  st_as_sf() |>  
+  mutate(id = arizona_data2$id[2]) |> 
+  left_join(arizona_data2, by = "id")
+
+az_mcos3 <- arizona_shp5.1 |> 
+  bind_rows(arizona_shp5.2)
+
+leaflet() %>%
+  addTiles() %>%   # add base map
+  addPolygons(data = az_mcos3,
+              weight = 1,
+              opacity = 1.0, fillOpacity = 0.7, 
+              group = az_mcos3$plan_name,
+              stroke = TRUE,
+              highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                  bringToFront = TRUE)
+  ) %>%
+  addLayersControl(
+    overlayGroups = az_mcos3$plan_name,
+    options = layersControlOptions(collapsed = FALSE)
+  ) 
 
 
 # References ----
