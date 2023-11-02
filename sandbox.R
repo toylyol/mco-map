@@ -65,6 +65,8 @@ us_counties <- us_counties %>%
 
 ## Save as GPKG ----
 
+# Use delete_dsn = FALSE to overwrite
+
 sf::st_write(obj = us_counties, dsn = "us_counties_2021.gpkg")
 
 
